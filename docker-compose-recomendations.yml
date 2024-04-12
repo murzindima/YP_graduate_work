@@ -12,8 +12,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    ports:
-      - "27017:27017"
 
   mongo_express_open_data:
     image: mongo-express:1.0.0-alpha
@@ -23,8 +21,6 @@ services:
     environment:
       ME_CONFIG_MONGODB_SERVER: mongo_db_recomendations
       ME_CONFIG_MONGODB_PORT: 27017
-    ports:
-      - "8081:8081"
 
   fastapi-recomendations:
     container_name: $RECOMENDATIONS_HOST
