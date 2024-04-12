@@ -1,0 +1,28 @@
+version: "3"
+
+services:
+  api_tests:
+    container_name: tests_spr7
+    image: async_api_sprint_2-api
+    environment:
+      - RUN_CMD=tests
+      - ES_URL=http://elasticsearch:9200
+      - REDIS_HOST=redis
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+      - elasticsearch
+      - redis
+
+  auth_tests:
+    container_name: tests_spr6
+    image: auth_api_sprint_1-api
+    env_file:
+      - .env
+    environment:
+      - RUN_CMD=tests
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+      - postgres
+      - redis

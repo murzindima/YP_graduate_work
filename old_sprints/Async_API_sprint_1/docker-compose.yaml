@@ -1,0 +1,69 @@
+version: "3"
+
+services:
+
+  postgres:
+    container_name: postgres_spr4
+    image: postgres:15
+    env_file:
+      - .env
+    restart: always
+
+  elasticsearch:
+    container_name: elasticsearch_spr4
+    image: elasticsearch:8.6.2
+    environment:
+      - node.name=es01
+      - cluster.name=es-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+    deploy:
+      resources:
+        reservations:
+          cpus: '1'
+          memory: 1G
+        limits:
+          cpus: '1'
+          memory: 2G
+    restart: always
+
+  redis:
+    container_name: redis_spr4
+    image: redis:7.2.3-alpine
+    restart: always
+
+  etl:
+    container_name: etl_service_spr4
+    build:
+      context: postgres_to_elastic_etl
+    env_file:
+      - .env
+    restart: always
+    depends_on:
+      - postgres
+      - elasticsearch
+      - redis
+
+  api:
+    container_name: api_service_spr4
+    build:
+      context: fastapi
+    env_file:
+      - .env
+    restart: always
+    depends_on:
+      - postgres
+      - elasticsearch
+      - redis
+      - etl
+
+  nginx:
+    container_name: nginx_spr4
+    build:
+      context: nginx
+    ports:
+      - "8080:80"
+    restart: always
+    depends_on:
+      - api

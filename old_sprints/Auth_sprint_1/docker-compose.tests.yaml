@@ -1,0 +1,51 @@
+version: "3"
+
+services:
+
+  postgres:
+    container_name: postgres_spr6
+    image: postgres:15
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "5432:5432"
+
+  redis:
+    container_name: redis_spr6
+    image: redis:7.2.3-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  api:
+    container_name: api_spr6
+    image: auth_api_sprint_1-api
+    build:
+      context: "."
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+
+  tests:
+    container_name: tests_spr6
+    image: auth_api_sprint_1-api
+    env_file:
+      - .env
+    environment:
+      - RUN_CMD=tests
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+      - postgres
+      - redis

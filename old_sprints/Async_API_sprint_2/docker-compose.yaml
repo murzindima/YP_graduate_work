@@ -1,0 +1,68 @@
+version: "3"
+
+services:
+
+  elasticsearch:
+    container_name: elasticsearch_spr5
+    image: elasticsearch:8.6.2
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -X GET http://localhost:9200/" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      - node.name=es01
+      - cluster.name=es-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    deploy:
+      resources:
+        reservations:
+          cpus: '1'
+          memory: 1G
+        limits:
+          cpus: '1'
+          memory: 2G
+    restart: always
+
+  redis:
+    container_name: redis_spr5
+    image: redis:7.2.3-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  api:
+    container_name: api_spr5
+    image: async_api_sprint_2-api
+    build:
+      context: fastapi
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: always
+    depends_on:
+      - elasticsearch
+      - redis
+  
+  tests:
+    container_name: tests_spr5
+    image: async_api_sprint_2-api
+    environment:
+      - RUN_CMD=tests
+      - ES_URL=http://elasticsearch:9200
+      - REDIS_HOST=redis
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+      - elasticsearch
+      - redis

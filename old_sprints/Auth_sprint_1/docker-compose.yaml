@@ -1,0 +1,48 @@
+version: "3"
+
+services:
+
+  postgres:
+    container_name: postgres_spr6
+    image: postgres:15
+    env_file:
+      - .env
+    restart: always
+    expose:
+      - "5432"
+
+  redis:
+    container_name: redis_spr6
+    image: redis:7.2.3-alpine
+    expose:
+      - "6379"
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  api:
+    container_name: api_spr6
+    image: auth_api_sprint_1-api
+    build:
+      context: "."
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+
+  nginx:
+    container_name: nginx_spr6
+    build:
+      context: nginx
+    ports:
+      - "8080:80"
+    restart: always
+    depends_on:
+      - api

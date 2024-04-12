@@ -1,0 +1,110 @@
+version: "3"
+
+services:
+  nginx:
+    build: nginx
+    container_name: nginx_spr7
+    restart: always
+    volumes:
+      - admin_panel_static:/data/static
+    ports:
+      - "8080:80"
+
+  elasticsearch:
+    image: elasticsearch:8.6.2
+    container_name: elasticsearch_spr7
+    restart: always
+    environment:
+      - node.name=es01
+      - cluster.name=es-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+    deploy:
+      resources:
+        reservations:
+          cpus: '1'
+          memory: 1G
+        limits:
+          cpus: '1'
+          memory: 2G
+
+  redis:
+    image: redis:7.2.3-alpine
+    container_name: redis_spr7
+    restart: always
+    expose:
+      - 6379
+
+  postgres-authdb:
+    image: postgres:15
+    container_name: postgres_authdb_spr7
+    restart: always
+    env_file: auth_service/.env
+    expose:
+      - 5432
+
+  postgres-moviesdb:
+    image: postgres:15
+    container_name: postgres_moviesdb_spr7
+    restart: always
+    env_file: content_delivery_service/.env
+    expose:
+      - 5432
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: jaeger_spr7
+    restart: always
+    expose:
+      - 16686
+      - 6831/udp
+
+  etl:
+    build: postgres_to_elastic_etl
+    container_name: etl_spr7
+    restart: always
+    env_file: content_delivery_service/.env
+    depends_on:
+      - postgres-moviesdb
+      - elasticsearch
+      - redis
+
+  content-delivery-service:
+    build: content_delivery_service
+    container_name: content_delivery_service_spr7
+    restart: always
+    env_file: content_delivery_service/.env
+    expose:
+      - 8000
+    depends_on:
+      - postgres-moviesdb
+      - elasticsearch
+      - redis
+      - etl
+
+  auth-service:
+    build: auth_service
+    image: auth_service_spr7
+    container_name: auth_service_spr7
+    restart: always
+    env_file: auth_service/.env
+    expose:
+      - 8000
+    depends_on:
+      - postgres-authdb
+      - redis
+
+  admin-panel-service:
+    build: admin_panel_service
+    env_file: admin_panel_service/.env
+    volumes:
+      - admin_panel_static:/movies_admin/.venv/static
+    expose:
+      - 8000
+    depends_on:
+      - postgres-moviesdb
+
+volumes:
+#  admin_panel_pgdata:
+  admin_panel_static:
