@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from api import favourites, likes, movies, reviews
+from api import recommendations
 from core.config import settings
 from db import mongo
 
@@ -27,9 +27,8 @@ app = FastAPI(
     openapi_url=settings.openapi_url,
 )
 
-app.include_router(movies.router, prefix='/api/v1/movies', tags=['Фильмы'])
-app.include_router(likes.router, prefix='/api/v1/likes', tags=['Лайки'])
 app.include_router(
-    favourites.router, prefix='/api/v1/favourites', tags=['Закладки']
+    recommendations.router,
+    prefix="/api/v1/recommendations",
+    tags=["Рекомендации"],
 )
-app.include_router(reviews.router, prefix='/api/v1/reviews', tags=['Отзывы'])
