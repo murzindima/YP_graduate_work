@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field, validator
-from pymongo.collection import ObjectId
 
 
 class BaseInMongo(BaseModel):

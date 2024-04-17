@@ -1,5 +1,5 @@
 from fastapi import Depends
-from pymongo.errors import DuplicateKeyError, WriteError
+from pymongo.errors import DuplicateKeyError
 
 from core.helpers import form_mongo_update_data
 from core.exceptions import ObjectDoesNotExistExeption

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from models.films import MovieCreate, MovieInDb
 from services.films import FilmService, get_film_service
@@ -31,6 +31,18 @@ async def delete_movie(
 
 
 @router.get('', response_model=list[MovieInDb], summary='Получение фильмов')
-async def get_movies(film_service: FilmService = Depends(get_film_service)):
+async def get_movies(
+    film_service: FilmService = Depends(get_film_service),
+        sort_order: str = Query(None, description="Направление сортировки (asc/desc)")):
+
     result = await film_service.get_movies()
-    return result
+
+    filtered_items = [MovieInDb.model_validate(item) for item in result]
+    print(filtered_items)
+
+    filtered = sorted(filtered_items, key=lambda x: x.average_rating, reverse=True)
+
+    if sort_order == "asc":
+        filtered = sorted(filtered_items, key=lambda x: x.average_rating)
+
+    return filtered
