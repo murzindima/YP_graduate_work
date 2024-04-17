@@ -46,3 +46,13 @@ async def get_movies(
         filtered = sorted(filtered_items, key=lambda x: x.average_rating)
 
     return filtered
+
+
+@router.get('/user/{user_id}', summary='Получение лайков пользователя')
+async def get_user_likes(
+        user_id: str,
+        film_service: FilmService = Depends(get_film_service)):
+
+    result = await film_service.get_user_likes(user_id)
+
+    return result
