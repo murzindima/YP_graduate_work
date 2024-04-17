@@ -16,7 +16,6 @@ class LikeService:
     ) -> Like:
         like_db = Like(user_id=user_id, **like.model_dump())
         result = await self.collection.get_by_id({'_id': movie_id})
-        print(type(result))
         if not result:
             raise ObjectDoesNotExistExeption
         try:
@@ -38,15 +37,10 @@ class LikeService:
             {'_id': movie_id,
              'reviews.review_id': review_id}):
             raise ObjectDoesNotExistExeption
-        try:
-            id = {
-                '_id': movie_id,
-                'reviews.review_id': review_id,
-                'reviews': {'$elemMatch': {'likes.user_id': {'$ne': user_id}}},
-            }
-            data = {'$addToSet': {'reviews.$.likes': like_db.model_dump()}}
-            await self.collection.upsert_one(id, data)
-        except WriteError:
+        if await self.collection.get_by_id(
+            {'_id': movie_id,
+             'reviews.review_id': review_id,
+             'reviews': {'$elemMatch': {'likes.user_id': user_id}}}):
             id = {
                 '_id': movie_id,
                 'reviews.review_id': review_id,
@@ -61,6 +55,13 @@ class LikeService:
                 {'inner.user_id': user_id},
             ]
             await self.collection.upsert_one(id, data, array_filters)
+        id = {
+            '_id': movie_id,
+            'reviews.review_id': review_id,
+            'reviews': {'$elemMatch': {'likes.user_id': {'$ne': user_id}}},
+        }
+        data = {'$addToSet': {'reviews.$.likes': like_db.model_dump()}}
+        await self.collection.upsert_one(id, data)
         return like_db
 
     async def remove_like_from_movie(self, movie_id: str, user_id: str) -> str:

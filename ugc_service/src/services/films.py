@@ -1,7 +1,7 @@
 from fastapi import Depends
 from typing import Any
 
-from core.exceptions import ObjectDoesNotExistExeption
+from core.exceptions import ObjectDoesNotExistExeption, DuplicateObjectExeption
 from models.films import MovieCreate, MovieInDb
 from services.mongo_storage import MongoStorage, get_film_storage
 
@@ -23,7 +23,7 @@ class FilmService:
         }
         movie_id = await self.collection.upsert_one(id, data)
         if not movie_id:
-            raise ObjectDoesNotExistExeption
+            raise DuplicateObjectExeption
         movie_db = MovieInDb(_id=movie_id, **movie.model_dump())
         return movie_db
 
