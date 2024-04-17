@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 
 import pandas as pd
@@ -85,12 +86,15 @@ class RecommendationsService:
                 recommended_movies.items(), key=lambda x: x[1], reverse=True
             )
             # Возвращаем топ N рекомендаций
-            return [
+            movies_uuid = [
                 movie
                 for movie, _ in recommended_movies_sorted[
                     : settings.num_recommendations
                 ]
             ]
+
+            movies_data = await self._fetch_movies_data_by_uuid(movies_uuid)
+            return movies_data
         except KeyError:
             raise UserNotFoundtExeption
 
@@ -98,6 +102,24 @@ class RecommendationsService:
         """Получение данных из UGC"""
         try:
             response = requests.get(settings.ugc_movies_endpoint)
+            response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
+            data = response.json()
+            return data
+        except requests.RequestException as e:
+            print(f"Ошибка при запросе к API: {e}")
+            return []  # Возвращаем пустой список, если есть ошибка
+
+    async def _fetch_movies_data_by_uuid(self, movies_uuid: list) -> list:
+        """Получение данных по фильмам из Movies"""
+        try:
+            headers = {
+                "accept": "application/json",
+                "Content-Type": "application/json",
+            }
+            data = json.dumps(movies_uuid)
+            response = requests.post(
+                settings.movies_endpoint, headers=headers, data=movies_uuid
+            )
             response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
             data = response.json()
             return data

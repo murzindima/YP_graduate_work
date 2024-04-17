@@ -21,6 +21,8 @@ MATCH_ALL = """"must": {"match_all": {}}"""
 # {поле в индексе: значение по которому ищем}
 MATCH_QUERY = """{"match": {"%(key)s": "%(value)s"}}"""
 
+TERMS_QUERY = '{"terms": {"%(key)s": [%(value)s]}}'
+
 # передаем (bool_operator "must"|"should"|"must_not",
 # bool_base|bool_nested MATCH_ALL|MATCH_QUERY|NESTED_QUERY)
 BOOL = """"%(bool_operator)s": [%(bool)s]"""
