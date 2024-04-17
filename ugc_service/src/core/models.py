@@ -7,7 +7,7 @@ class BaseInMongo(BaseModel):
 
     @validator('id', pre=True, always=True)
     @classmethod
-    def convert_to_str(cls, _id: ObjectId) -> str | None:
+    def convert_to_str(cls, _id: str) -> str | None:
         if _id:
             return str(_id)
         return None
