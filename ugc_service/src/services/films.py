@@ -37,7 +37,6 @@ class FilmService:
     async def get_user_likes(self, user_id):
         movies = await self.collection.get_list(
             {"likes.user_id": user_id}, {"_id": 1})
-        print(movies)
         return [doc["_id"] for doc in movies]
 
 

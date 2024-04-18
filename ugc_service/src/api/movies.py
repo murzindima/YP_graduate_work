@@ -38,14 +38,13 @@ async def get_movies(
     result = await film_service.get_movies()
 
     filtered_items = [MovieInDb.model_validate(item) for item in result]
-    print(filtered_items)
-
-    filtered = sorted(filtered_items, key=lambda x: x.average_rating, reverse=True)
 
     if sort_order == "asc":
-        filtered = sorted(filtered_items, key=lambda x: x.average_rating)
+        filtered_items = sorted(filtered_items, key=lambda x: x.average_rating)
+    elif sort_order == "desc":
+        filtered_items = sorted(filtered_items, key=lambda x: x.average_rating, reverse=True)
 
-    return filtered
+    return filtered_items
 
 
 @router.get('/user/{user_id}', summary='Получение лайков пользователя')
