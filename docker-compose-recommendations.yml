@@ -1,4 +1,4 @@
-name: ugc_recommendations
+name: recommendations
 version: '3.9'
 
 services:
@@ -23,6 +23,7 @@ services:
     expose:
       - $MAIN_UGC_PORT
     volumes:
+      - ./ugc_service/src://usr/src/fastapi:rw
       - fastapi_main_ugc_log:/usr/src/fastapi/logs
     restart: always
     command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$MAIN_UGC_PORT main:app
@@ -64,6 +65,7 @@ services:
     expose:
       - $RECOMMENDATIONS_PORT
     volumes:
+      - ./recomendations/src://usr/src/fastapi:rw
       - fastapi_recommendations_log:/usr/src/fastapi/logs
     restart: always
     command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$RECOMMENDATIONS_PORT main:app
@@ -82,8 +84,125 @@ services:
       - fastapi-recommendations
     restart: always
 
+  postgres-movies:
+    container_name: $MOVIES_POSTGRES_HOST
+    image: postgres:16.0-alpine3.18
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=$MOVIES_POSTGRES_PORT
+      - POSTGRES_PORT=$MOVIES_POSTGRES_PORT
+      - POSTGRES_DB=$MOVIES_POSTGRES_DB
+      - POSTGRES_USER=$MOVIES_POSTGRES_USER
+      - POSTGRES_PASSWORD=$MOVIES_POSTGRES_PASSWORD
+    ports:
+      - $MOVIES_POSTGRES_PORT:$MOVIES_POSTGRES_PORT
+    volumes:
+      - ./movies/postgres_movies:/docker-entrypoint-initdb.d/
+      - postgres_movies_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $MOVIES_POSTGRES_USER -d $MOVIES_POSTGRES_DB"]
+      interval: "10s"
+      timeout: "3s"
+      retries: 3
+      start_period: "10s"
+    restart: always
+
+  elastic-movies:
+    container_name: $MOVIES_ES_HOST
+    image: elasticsearch:8.12.2
+    environment:
+      - "ES_JAVA_OPTS=-Xms200m -Xmx200m"
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - bootstrap.memory_lock=true
+      - logger.level=WARN
+    expose:
+      - $MOVIES_ES_PORT
+    volumes:
+      - elastic_movies_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -s http://localhost:$MOVIES_ES_PORT >/dev/null || exit 1
+      interval: "30s"
+      timeout: "10s"
+      retries: 3
+      start_period: "30s"
+    mem_limit: 4g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    restart: always
+
+  redis-movies:
+    container_name: $MOVIES_REDIS_HOST
+    image: redis:7.2.3-alpine3.19
+    expose:
+      - $MOVIES_REDIS_PORT
+    volumes:
+      - redis_movies_data:/data
+    restart: always
+    command: redis-server --save 60 1 --loglevel notice
+
+  etl_movies:
+    container_name: etl_movies
+    build:
+      context: ./movies/etl
+    image: etl_img
+    env_file:
+      - .env
+    volumes:
+      - etl_movies_log:/app/logs
+    depends_on:
+      postgres-movies:
+        condition: service_healthy
+      elastic-movies:
+        condition: service_healthy
+    restart: always
+
+  fastapi-movies:
+    container_name: $MOVIES_FASTAPI_HOST
+    build:
+      context: ./movies/fastapi_movies
+    image: $MOVIES_FASTAPI_HOST
+    env_file:
+      - .env
+    expose:
+      - $MOVIES_FASTAPI_PORT
+    volumes:
+      - ./movies/fastapi_movies://usr/src/fastapi:rw
+      - fastapi_movies_log:/usr/src/fastapi/logs
+    depends_on:
+      elastic-movies:
+        condition: service_healthy
+    restart: always
+    command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$MOVIES_FASTAPI_PORT main:app
+    ports:
+      - $MOVIES_FASTAPI_PORT:$MOVIES_FASTAPI_PORT
+
+  nginx-movies:
+    container_name: nginx-movies
+    image: nginx:1.25-bookworm
+    ports:
+      - 70:80
+    volumes:
+      - nginx_movies_log:/var/log/nginx
+      - ./movies/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./movies/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/timezone:/etc/timezone:ro
+    depends_on:
+      - fastapi-movies
+    restart: always
+
 volumes:
   nginx_main-ugc_log:
   fastapi_main_ugc_log:
   nginx_recommendations_log:
   fastapi_recommendations_log:
+  nginx_movies_log:
+  postgres_movies_data:
+  etl_movies_log:
+  redis_movies_data:
+  elastic_movies_data:
+  fastapi_movies_log:

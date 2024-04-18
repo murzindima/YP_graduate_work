@@ -13,6 +13,7 @@ from core.es_queries import (
     NESTED_QUERY,
     QUERY_BASE,
     SORT,
+    TERMS_QUERY,
 )
 from core.models import SortOrder
 from services.cache import AbstractCacheService
@@ -55,14 +56,16 @@ class CommonService:
         page_size: int = settings.standart_page_size,
         sort: str | None = None,
         matches: dict | None = None,
+        terms: dict | None = None,
         nested_matches: dict | None = None,
         bool_operator: str = "should",
     ) -> list[BaseModel | None]:
         """Метод получения списка из индекса по заданным параметрам."""
-        if instances := await self.cache.get_instances_from_cache(
-            request=request, model=self.model
-        ):
-            return instances
+        if request.method == "GET":
+            if instances := await self.cache.get_instances_from_cache(
+                request=request, model=self.model
+            ):
+                return instances
         if sort:
             sort = self._get_sort(sort=sort)
         es_query = self._get_es_query(
@@ -70,6 +73,7 @@ class CommonService:
             page_size=page_size,
             sort=sort,
             matches=matches,
+            terms=terms,
             nested_matches=nested_matches,
             bool_operator=bool_operator,
         )
@@ -88,6 +92,7 @@ class CommonService:
         page_number: int = 1,
         page_size: int = settings.standart_page_size,
         matches: dict | None = None,
+        terms: dict | None = None,
         nested_matches: dict | None = None,
         bool_operator: str = "should",
     ):
@@ -96,6 +101,7 @@ class CommonService:
             sort = ""
         bool_base = ""
         bool_nested = ""
+        bool_terms = ""
         from_ = (page_number - 1) * page_size
         if matches:
             bool_base = ",".join(
@@ -114,10 +120,21 @@ class CommonService:
                 )  # noqa: F811
                 for key, value in nested_matches.items()
             )
-        if not bool_base and not bool_nested:
+        if terms:
+            bool_terms = ",".join(
+                (
+                    TERMS_QUERY
+                    % {
+                        "key": key,
+                        "value": ", ".join(f'"{str(v)}"' for v in value),
+                    }
+                )
+                for key, value in terms.items()
+            )
+        if not bool_base and not bool_nested and not bool_terms:
             bool = MATCH_ALL
         else:
-            bool = ",".join((bool_base, bool_nested)).strip(",")
+            bool = ",".join((bool_base, bool_nested, bool_terms)).strip(",")
             bool = BOOL % {"bool_operator": bool_operator, "bool": bool}
         es_query = QUERY_BASE % {
             "from_": from_,

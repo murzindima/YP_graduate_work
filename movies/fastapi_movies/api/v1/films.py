@@ -9,6 +9,7 @@ from core.enum import (
     APIFilmByUUIDDescription,
     APIFilmMainDescription,
     APIFilmSearchDescription,
+    APIFilmListDescription,
     ErrorMessage,
 )
 from core.models import UserRights
@@ -128,6 +129,35 @@ async def film_list(
         page_size=page_size,
         sort=sort,
         nested_matches=nested_matches,
+        bool_operator="must",
+        request=request,
+    )
+    if not films:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=ErrorMessage.films_not_found,
+        )
+
+    return films
+
+
+@router.post(
+    "",
+    response_model=list[FilmShort],
+    summary=APIFilmListDescription.summary,
+    description=APIFilmListDescription.description,
+    response_description=APIFilmListDescription.response_description,
+)
+async def get_list(
+    movies_uuid: list[UUID],
+    request: Request,
+    service: CommonService = Depends(get_film_service),
+) -> list[FilmShort]:
+    """
+    Поиск кинопроизведений по списку их UUID
+    """
+    films = await service.get_list(
+        terms={"uuid": movies_uuid},
         bool_operator="must",
         request=request,
     )
