@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from core.models import FilmShort
 from services.recommendations import (
     RecommendationsService,
     get_recommendations_service,
@@ -42,7 +43,7 @@ async def get_recommendations(
     recommendations_service: RecommendationsService = Depends(
         get_recommendations_service
     ),
-) -> list[str]:
+) -> list[FilmShort]:
     recommendations = await recommendations_service.get_recommendations(
         user_id
     )
