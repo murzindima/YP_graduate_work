@@ -174,8 +174,8 @@ class RecommendationsService:
 def get_recommendations_service(
     user_movie_collection: MongoStorage = Depends(get_user_movie_storage),
     similarity_collection: MongoStorage = Depends(get_similarity_storage),
-    new_movies_collection: MongoStorage = Depends(),
-    best_movies_collection: MongoStorage = Depends()
+    new_movies_collection: MongoStorage = Depends(get_new_movies_storage),
+    best_movies_collection: MongoStorage = Depends(get_best_movies_storage)
 ) -> RecommendationsService:
     return RecommendationsService(
         user_movie_collection=user_movie_collection,
