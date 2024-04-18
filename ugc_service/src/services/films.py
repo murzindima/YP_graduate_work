@@ -11,15 +11,15 @@ class FilmService:
         self.collection = collection
 
     async def get_movie(self, data: str) -> dict:
-        result = await self.collection.get_by_id({'_id': data})
+        result = await self.collection.get_by_id({"_id": data})
         if not result:
             raise ObjectDoesNotExistExeption
         return result
 
     async def create_movie(self, movie: MovieCreate) -> MovieInDb:
-        id = {'_id': movie.id}
+        id = {"_id": movie.id}
         data = {
-            '$setOnInsert': movie.model_dump(),
+            "$setOnInsert": movie.model_dump(),
         }
         movie_id = await self.collection.upsert_one(id, data)
         if not movie_id:

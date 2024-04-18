@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 
 import pandas as pd
@@ -12,6 +13,7 @@ from services.mongo_storage import (
     get_user_movie_storage,
     get_similarity_storage,
 )
+from core.models import FilmShort
 
 
 class RecommendationsService:
@@ -32,14 +34,12 @@ class RecommendationsService:
         user_movie_matrix = df_likes.pivot_table(
             index="user_id", columns="movie_id", values="rating", fill_value=0
         )
-
         # Вычисление косинусного сходства между пользователями
         similarity_matrix = pd.DataFrame(
             cosine_similarity(user_movie_matrix),
             index=user_movie_matrix.index,
             columns=user_movie_matrix.index,
         )
-
         # Сохранение user_movie_matrix
         user_movie_data = user_movie_matrix.reset_index().melt(
             id_vars="user_id", var_name="movie_id", value_name="rating"
@@ -62,7 +62,7 @@ class RecommendationsService:
         await self.similarity_collection.delete_all()
         await self.similarity_collection.insert_many(similarity_records)
 
-    async def get_recommendations(self, user_id: str) -> list[str]:
+    async def get_recommendations(self, user_id: str) -> list[FilmShort]:
         """Получение списка рекомендаций."""
         try:
             # получение матриц
@@ -85,12 +85,17 @@ class RecommendationsService:
                 recommended_movies.items(), key=lambda x: x[1], reverse=True
             )
             # Возвращаем топ N рекомендаций
-            return [
+            movies_uuid = [
                 movie
                 for movie, _ in recommended_movies_sorted[
                     : settings.num_recommendations
                 ]
             ]
+            # Возвращаем пустой список, если рекомендаций нет
+            if movies_uuid == []:
+                return movies_uuid
+            movies_data = await self._fetch_movies_data_by_uuid(movies_uuid)
+            return movies_data
         except KeyError:
             raise UserNotFoundtExeption
 
@@ -98,6 +103,20 @@ class RecommendationsService:
         """Получение данных из UGC"""
         try:
             response = requests.get(settings.ugc_movies_endpoint)
+            response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
+            data = response.json()
+            return data
+        except requests.RequestException as e:
+            print(f"Ошибка при запросе к API: {e}")
+            return []  # Возвращаем пустой список, если есть ошибка
+
+    async def _fetch_movies_data_by_uuid(
+        self, movies_uuid: list
+    ) -> list[FilmShort]:
+        """Получение данных по фильмам из Movies"""
+        try:
+            data = json.dumps(movies_uuid)
+            response = requests.post(settings.movies_endpoint, data=data)
             response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
             data = response.json()
             return data

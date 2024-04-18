@@ -45,6 +45,14 @@ class APIFilmMainDescription(str, Enum):
     response_description = "Список кинопроизведений"
 
 
+class APIFilmListDescription(str, Enum):
+    """Модель описания запроса списка фильмов по их UUID."""
+
+    summary = "Кинопроизведения по списку UUID"
+    description = "Возвращает спискок кинопроизведений по списку UUID"
+    response_description = "Список кинопроизведений по списку UUID"
+
+
 class APIGenreByUUIDDescription(str, Enum):
     """Модель описания запроса жанра по UUID"""
 
