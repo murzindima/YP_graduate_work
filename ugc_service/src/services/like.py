@@ -1,6 +1,5 @@
 from fastapi import Depends
-from pymongo.collection import ObjectId
-from pymongo.errors import DuplicateKeyError, WriteError
+from pymongo.errors import DuplicateKeyError
 
 from core.helpers import form_mongo_update_data
 from core.exceptions import ObjectDoesNotExistExeption
@@ -16,14 +15,15 @@ class LikeService:
         self, movie_id: str, user_id: str, like: LikeCreate
     ) -> Like:
         like_db = Like(user_id=user_id, **like.model_dump())
-        if not await self.collection.get_by_id({'_id': ObjectId(movie_id)}):
+        result = await self.collection.get_by_id({'_id': movie_id})
+        if not result:
             raise ObjectDoesNotExistExeption
         try:
-            id = {'_id': ObjectId(movie_id), 'likes.user_id': {'$ne': user_id}}
+            id = {'_id': movie_id, 'likes.user_id': {'$ne': user_id}}
             data = {'$addToSet': {'likes': like_db.model_dump()}}
             await self.collection.upsert_one(id, data)
         except DuplicateKeyError:
-            id = {'_id': ObjectId(movie_id), 'likes.user_id': user_id}
+            id = {'_id': movie_id, 'likes.user_id': user_id}
             form_data = form_mongo_update_data(like_db, 'likes.$.')
             data = {'$set': form_data}
             await self.collection.upsert_one(id, data)
@@ -34,20 +34,15 @@ class LikeService:
     ) -> Like:
         like_db = Like(user_id=user_id, **like.model_dump())
         if not await self.collection.get_by_id(
-            {'_id': ObjectId(movie_id),
+            {'_id': movie_id,
              'reviews.review_id': review_id}):
             raise ObjectDoesNotExistExeption
-        try:
+        if await self.collection.get_by_id(
+            {'_id': movie_id,
+             'reviews.review_id': review_id,
+             'reviews': {'$elemMatch': {'likes.user_id': user_id}}}):
             id = {
-                '_id': ObjectId(movie_id),
-                'reviews.review_id': review_id,
-                'reviews': {'$elemMatch': {'likes.user_id': {'$ne': user_id}}},
-            }
-            data = {'$addToSet': {'reviews.$.likes': like_db.model_dump()}}
-            await self.collection.upsert_one(id, data)
-        except WriteError:
-            id = {
-                '_id': ObjectId(movie_id),
+                '_id': movie_id,
                 'reviews.review_id': review_id,
                 'reviews.likes.user_id': user_id,
             }
@@ -60,18 +55,25 @@ class LikeService:
                 {'inner.user_id': user_id},
             ]
             await self.collection.upsert_one(id, data, array_filters)
+        id = {
+            '_id': movie_id,
+            'reviews.review_id': review_id,
+            'reviews': {'$elemMatch': {'likes.user_id': {'$ne': user_id}}},
+        }
+        data = {'$addToSet': {'reviews.$.likes': like_db.model_dump()}}
+        await self.collection.upsert_one(id, data)
         return like_db
 
-    async def remove_like_from_movie(self, movie_id: str, user_id: str) -> ObjectId:
-        filter_criteria = {'_id': ObjectId(movie_id)}
+    async def remove_like_from_movie(self, movie_id: str, user_id: str) -> str:
+        filter_criteria = {'_id': movie_id}
         update_data = {'$pull': {'likes': {'user_id': user_id}}}
         return await self.collection.upsert_one(filter_criteria, update_data)
 
     async def remove_like_from_review(
         self, movie_id: str, review_id: str, user_id: str
-    ) -> ObjectId:
+    ) -> str:
         filter_criteria = {
-            '_id': ObjectId(movie_id),
+            '_id': movie_id,
             'reviews.review_id': review_id,
         }
         update_data = {'$pull': {'reviews.$.likes': {'user_id': user_id}}}
