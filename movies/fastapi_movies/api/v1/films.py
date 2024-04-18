@@ -12,7 +12,7 @@ from core.enum import (
     APIFilmListDescription,
     ErrorMessage,
 )
-from core.models import Base, UserRights
+from core.models import UserRights
 from core.service import CommonService
 from models.film import Film, FilmShort
 from services.film import get_film_service
