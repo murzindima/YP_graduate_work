@@ -12,6 +12,8 @@ from services.mongo_storage import (
     MongoStorage,
     get_user_movie_storage,
     get_similarity_storage,
+    get_new_movies_storage,
+    get_best_movies_storage,
 )
 from core.models import FilmShort
 
@@ -21,13 +23,31 @@ class RecommendationsService:
         self,
         user_movie_collection: MongoStorage,
         similarity_collection: MongoStorage,
+        new_movies_collection: MongoStorage,
+        best_movies_collection: MongoStorage,
     ) -> None:
         self.user_movie_collection = user_movie_collection
         self.similarity_collection = similarity_collection
+        self.new_movies_collection = new_movies_collection
+        self.best_movies_collection = best_movies_collection
+
+    async def refresh_new(self) -> None:
+        """Создание/обновление данных по новинкам."""
+        raw_data = await self._fetch_movies_data(settings.new_movies_endpoint)
+
+        await self.new_movies_collection.delete_all()
+        await self.new_movies_collection.insert_many(raw_data)
+
+    async def refresh_best(self) -> None:
+        """Создание/обновление данных по лучшим фильмам."""
+        raw_data = await self._fetch_movies_data(settings.best_ugc_endpoint)
+
+        await self.best_movies_collection.delete_all()
+        await self.best_movies_collection.insert_many(raw_data)
 
     async def refresh_matrices(self) -> None:
         """Создание/обновление существующих матриц."""
-        raw_data = await self._fetch_movies_data()
+        raw_data = await self._fetch_movies_data(settings.ugc_movies_endpoint)
         df_likes = self._process_data(raw_data)
 
         # Создание матрицы "пользователь-фильм"
@@ -114,10 +134,10 @@ class RecommendationsService:
         ]
         return recommendations
 
-    async def _fetch_movies_data(self):
+    async def _fetch_movies_data(self, endpoint):
         """Получение данных из UGC"""
         try:
-            response = requests.get(settings.ugc_movies_endpoint)
+            response = requests.get(endpoint)
             response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
             data = response.json()
             return data
@@ -174,12 +194,26 @@ class RecommendationsService:
         )
         return user_movie_matrix, similarity_matrix
 
+    async def _fetch_new_movies(self):
+        """Получение новинок из хранилища."""
+        movies_data = await self.new_movies_collection.get_list()
+        return movies_data
+
+    async def _fetch_best_movies(self):
+        """Получение лучших фильмов из хранилища."""
+        movies_data = await self.best_movies_collection.get_list()
+        return movies_data
+
 
 def get_recommendations_service(
     user_movie_collection: MongoStorage = Depends(get_user_movie_storage),
     similarity_collection: MongoStorage = Depends(get_similarity_storage),
+    new_movies_collection: MongoStorage = Depends(get_new_movies_storage),
+    best_movies_collection: MongoStorage = Depends(get_best_movies_storage)
 ) -> RecommendationsService:
     return RecommendationsService(
         user_movie_collection=user_movie_collection,
         similarity_collection=similarity_collection,
+        new_movies_collection=new_movies_collection,
+        best_movies_collection=best_movies_collection,
     )

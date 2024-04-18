@@ -27,7 +27,17 @@ class Settings(BaseSettings):
     num_recommendations: int = 5
     num_similar_users: int = 5
     ugc_movies_endpoint: str = Field(default="localhost:80/api/v1/movies")
+      
     movies_endpoint: str = Field(default="localhost:70/api/v1/films")
+      
+    new_movies_endpoint: str = Field(default="localhost:80/api/v1/movies")
+    best_ugc_endpoint: str = Field(default="localhost:80/api/v1/ugc")
+
+    new_recommendation_endpoint: str = Field(default="localhost:80/api/v1/recommendations/update_new")
+    best_recommendation_endpoint: str = Field(default="localhost:80/api/v1/recommendations/update_best")
+    similar_recommendation_endpoint: str = Field(default="localhost:80/api/v1/recommendations/create_matrices")
+
+
 
     @property
     def mongo_dsn(self) -> str:
