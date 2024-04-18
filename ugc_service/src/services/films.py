@@ -34,11 +34,6 @@ class FilmService:
     async def delete_movie(self, movie_id):
         return await self.collection.delete_one(movie_id)
 
-    async def get_user_likes(self, user_id):
-        movies = await self.collection.get_list(
-            {"likes.user_id": user_id}, {"_id": 1})
-        return [doc["_id"] for doc in movies]
-
 
 def get_film_service(
     collection: MongoStorage = Depends(get_film_storage),
