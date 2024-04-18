@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 
 from core.models import FilmShort
@@ -20,12 +22,12 @@ async def create_matrices(
 
 @router.get("/{user_id}", summary="Получение списка рекоммендаций.")
 async def get_recommendations(
-    user_id: str,
+    user_id: UUID,
     recommendations_service: RecommendationsService = Depends(
         get_recommendations_service
     ),
 ) -> list[FilmShort]:
     recommendations = await recommendations_service.get_recommendations(
-        user_id
+        str(user_id)
     )
     return recommendations

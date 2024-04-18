@@ -95,9 +95,24 @@ class RecommendationsService:
             if movies_uuid == []:
                 return movies_uuid
             movies_data = await self._fetch_movies_data_by_uuid(movies_uuid)
-            return movies_data
-        except KeyError:
-            raise UserNotFoundtExeption
+            recommendations = self._sort_movies(movies_uuid, movies_data)
+            return recommendations
+        except KeyError as exc:
+            raise UserNotFoundtExeption from exc
+
+    def _sort_movies(
+        self, movies_uuid: list[str], movies_data: list[FilmShort]
+    ) -> list[FilmShort]:
+        """Сотрировка фильмов в порядке, как предоставленно рекомендациями."""
+        # Создаем словарь для быстрого доступа к данным фильма по его UUID
+        movies_data_dict = {
+            movie_data["uuid"]: movie_data for movie_data in movies_data
+        }
+        # Создаем список рекомендаций из данных фильмов в нужном порядке
+        recommendations = [
+            movies_data_dict[movie_uuid] for movie_uuid in movies_uuid
+        ]
+        return recommendations
 
     async def _fetch_movies_data(self):
         """Получение данных из UGC"""
