@@ -19,7 +19,6 @@ class Review(BaseModel):
     text: str
     likes: list[Like] = []
 
-    @property
     @computed_field
     def average_rating(self) -> float:
         if not self.likes:
@@ -37,7 +36,6 @@ class MovieInDb(BaseInMongo):
     reviews: list[Review] | None
     likes: list[Like] | None
 
-    @property
     @computed_field
     def average_rating(self) -> float:
         if not self.likes:
@@ -46,6 +44,7 @@ class MovieInDb(BaseInMongo):
 
 
 class MovieCreate(BaseModel):
+    id: str
     title: str
     reviews: list[Review] | None
     likes: list[Like] | None

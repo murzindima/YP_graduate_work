@@ -1,7 +1,6 @@
 from typing import Any
 
 from fastapi import Depends
-from pymongo.collection import ObjectId
 
 from models.favourites import Favourite
 from core.exceptions import ObjectDoesNotExistExeption
@@ -28,7 +27,7 @@ class FavouritesService:
             await self.collection.upsert_one(filter, data)
         return favourite
 
-    async def delete_favourite(self, film_id: str, user_id: str) -> ObjectId:
+    async def delete_favourite(self, film_id: str, user_id: str) -> str:
         filter_criteria = {'user_id': user_id,
                            'favourites.film_id': film_id}
         update_data = {'$pull': {'favourites': {'film_id': film_id}}}

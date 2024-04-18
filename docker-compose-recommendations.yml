@@ -23,6 +23,7 @@ services:
     expose:
       - $MAIN_UGC_PORT
     volumes:
+      - ./ugc_service/src://usr/src/fastapi:rw
       - fastapi_main_ugc_log:/usr/src/fastapi/logs
     restart: always
     command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$MAIN_UGC_PORT main:app
