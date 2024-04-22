@@ -13,7 +13,6 @@ from services.mongo_storage import (
     MongoStorage,
     get_user_movie_storage,
     get_similarity_storage,
-    get_new_movies_storage,
 )
 from core.models import FilmShort
 
@@ -23,32 +22,19 @@ class RecommendationsService:
         self,
         user_movie_collection: MongoStorage,
         similarity_collection: MongoStorage,
-        new_movies_collection: MongoStorage,
     ) -> None:
         self.user_movie_collection = user_movie_collection
         self.similarity_collection = similarity_collection
-        self.new_movies_collection = new_movies_collection
-
-    async def refresh_new(self) -> None:
-        """Создание/обновление данных по новинкам."""
-        raw_data = await self._fetch_movies_data(settings.new_movies_endpoint)
-
-        await self.new_movies_collection.delete_all()
-        await self.new_movies_collection.insert_many(raw_data)
 
     async def refresh_matrices(self) -> None:
         """Создание/обновление существующих матриц."""
-        start_time = time.time()
         raw_data = await self._fetch_movies_data(settings.ugc_movies_endpoint)
-        raw_data_time = time.time() - start_time
         df_likes = self._process_data(raw_data)
-        df_likes_time = time.time() - start_time
 
         # Создание матрицы "пользователь-фильм"
         user_movie_matrix = df_likes.pivot_table(
             index="user_id", columns="movie_id", values="rating", fill_value=0
         )
-        user_movie_matrix_time = time.time() - start_time
         # Преобразование в нужный формат и сохранение в коллекцию
         user_movie_records = []
         for user_id, row in user_movie_matrix.iterrows():
@@ -61,11 +47,8 @@ class RecommendationsService:
                     {"movie_id": movie_id, "rating": rating}
                 )
             user_movie_records.append(user_movie_data)
-        user_movie_records_time = time.time() - start_time
         await self.user_movie_collection.delete_all()
-        user_movie_delete_time = time.time() - start_time
         await self.user_movie_collection.insert_many(user_movie_records)
-        user_movie_insert_time = time.time() - start_time
 
         # Вычисление косинусного сходства между пользователями
         similarity_matrix = pd.DataFrame(
@@ -73,7 +56,6 @@ class RecommendationsService:
             index=user_movie_matrix.index,
             columns=user_movie_matrix.index,
         )
-        similarity_matrix_time = time.time() - start_time
         # Преобразование в нужный формат и сохранение в коллекцию user_similarity
         similarity_records = []
         for user_id, row in similarity_matrix.iterrows():
@@ -86,17 +68,8 @@ class RecommendationsService:
                     {"user_id": other_user_id, "similarity": similarity}
                 )
             similarity_records.append(similarity_data)
-        similarity_records_time = time.time() - start_time
         await self.similarity_collection.delete_all()
-        similarity_delete_time = time.time() - start_time
         await self.similarity_collection.insert_many(similarity_records)
-        similarity_insert_time = time.time() - start_time
-        print(
-            f"Работа refresh_matrices: raw_data_time = {raw_data_time}, df_likes_time = {df_likes_time}, user_movie_matrix_time = {user_movie_matrix_time}, "
-            f"user_movie_records_time = {user_movie_records_time}, user_movie_delete_time = {user_movie_delete_time}, user_movie_insert_time = {user_movie_insert_time}, "
-            f"similarity_matrix_time = {similarity_matrix_time}, similarity_records_time = {similarity_records_time}, similarity_delete_time = {similarity_delete_time}, "
-            f"similarity_insert_time = {similarity_insert_time}"
-        )
 
     async def get_recommendations(self, user_id: str) -> list[FilmShort]:
         """Получение списка рекомендаций с учетом лучших фильмов."""
@@ -314,10 +287,8 @@ class RecommendationsService:
 
     async def _fetch_matrices(self):
         """Получение матриц из хранилища."""
-        start_time = time.time()
         # Извлечение user_movie_matrix
         user_movie_data = await self.user_movie_collection.get_list()
-        user_movie_data_time = time.time() - start_time
         # Создаем список словарей
         data_list = []
         for user in user_movie_data:
@@ -331,14 +302,11 @@ class RecommendationsService:
                 )
         # Создаем DataFrame из списка словарей
         user_movie_df = pd.DataFrame(data_list)
-        user_movie_df_time = time.time() - start_time
         user_movie_matrix = user_movie_df.pivot(
             index="user_id", columns="movie_id", values="rating"
         )
-        user_movie_matrix_time = time.time() - start_time
         # Извлечение similarity_matrix
         similarity_data = await self.similarity_collection.get_list()
-        similarity_data_time = time.time() - start_time
         # Создаем список словарей
         data_list = []
         for user in similarity_data:
@@ -351,30 +319,17 @@ class RecommendationsService:
                     }
                 )
         similarity_df = pd.DataFrame(data_list)
-        similarity_df_time = time.time() - start_time
         similarity_matrix = similarity_df.pivot(
             index="user_id", columns="other_user", values="similarity"
         )
-        similarity_matrix_time = time.time() - start_time
-        print(
-            f"Работа _fetch_matrices: user_movie_data_time = {user_movie_data_time}, user_movie_df_time = {user_movie_df_time}, user_movie_matrix_time = {user_movie_matrix_time}, similarity_data_time = {similarity_data_time}, "
-            f"similarity_df_time = {similarity_df_time}, similarity_matrix_time = {similarity_matrix_time}"
-        )
         return user_movie_matrix, similarity_matrix
-
-    async def _fetch_new_movies(self):
-        """Получение новинок из хранилища."""
-        movies_data = await self.new_movies_collection.get_list()
-        return movies_data
 
 
 def get_recommendations_service(
     user_movie_collection: MongoStorage = Depends(get_user_movie_storage),
     similarity_collection: MongoStorage = Depends(get_similarity_storage),
-    new_movies_collection: MongoStorage = Depends(get_new_movies_storage),
 ) -> RecommendationsService:
     return RecommendationsService(
         user_movie_collection=user_movie_collection,
         similarity_collection=similarity_collection,
-        new_movies_collection=new_movies_collection,
     )

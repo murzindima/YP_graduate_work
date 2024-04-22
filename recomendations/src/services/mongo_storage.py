@@ -68,10 +68,3 @@ def get_similarity_storage(
 ) -> MongoStorage:
     collection = collection["movie_recommender"]["user_similarity"]
     return MongoStorage(collection=collection)
-
-
-def get_new_movies_storage(
-    collection=Depends(get_mongodb),
-) -> MongoStorage:
-    collection = collection["movie_recommender"]["new_movies"]
-    return MongoStorage(collection=collection)
