@@ -22,21 +22,11 @@ async def create_matrices(
 
 @router.get("/update_new", summary="Актуализация новинок фильмов.")
 async def update_new(
-        recommendations_service: RecommendationsService = Depends(
-            get_recommendations_service
-        ),
+    recommendations_service: RecommendationsService = Depends(
+        get_recommendations_service
+    ),
 ) -> None:
     await recommendations_service.refresh_new()
-
-
-@router.get("/update_best", summary="Актуализация лучших фильмов.")
-async def update_best(
-        recommendations_service: RecommendationsService = Depends(
-            get_recommendations_service
-        ),
-) -> None:
-
-    await recommendations_service.refresh_best()
 
 
 @router.get("/{user_id}", summary="Получение списка рекоммендаций.")
