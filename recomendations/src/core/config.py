@@ -34,15 +34,6 @@ class Settings(BaseSettings):
     movies_endpoint: str = Field(default="localhost:70/api/v1/films")
     movies_uuid_endpoint: str = Field(default="localhost:70/api/v1/films/all")
 
-    new_movies_endpoint: str = Field(default="localhost:80/api/v1/movies")
-
-    new_recommendation_endpoint: str = Field(
-        default="localhost:80/api/v1/recommendations/update_new"
-    )
-    similar_recommendation_endpoint: str = Field(
-        default="localhost:80/api/v1/recommendations/create_matrices"
-    )
-
     @property
     def mongo_dsn(self) -> str:
         return f"{self.mongo_recommendations_host}:{self.mongo_recommendations_port}"
