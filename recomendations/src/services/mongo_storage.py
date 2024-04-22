@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from fastapi import Depends
 
@@ -42,6 +43,19 @@ class AbstractStorage(ABC):
         """
         pass
 
+    @abstractmethod
+    async def distinct(
+        self,
+        field: str,
+    ) -> list[Any]:
+        """
+        Возвращает список содержимого в поле коллекции.
+
+        :param field: str - поле в котором искать
+        :return: list[Any]
+        """
+        pass
+
 
 class MongoStorage(AbstractStorage):
     async def get_list(self) -> list[dict]:
@@ -55,6 +69,10 @@ class MongoStorage(AbstractStorage):
     async def delete_all(self) -> None:
         await self.collection.delete_many({})
 
+    async def distinct(self, field: str) -> list[Any]:
+        distinct_values = await self.collection.distinct(field)
+        return distinct_values
+
 
 def get_user_movie_storage(
     collection=Depends(get_mongodb),
@@ -67,4 +85,11 @@ def get_similarity_storage(
     collection=Depends(get_mongodb),
 ) -> MongoStorage:
     collection = collection["movie_recommender"]["user_similarity"]
+    return MongoStorage(collection=collection)
+
+
+def get_new_movies_storage(
+    collection=Depends(get_mongodb),
+) -> MongoStorage:
+    collection = collection["movie_recommender"]["new_movies"]
     return MongoStorage(collection=collection)

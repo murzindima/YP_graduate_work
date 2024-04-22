@@ -13,6 +13,7 @@ from services.mongo_storage import (
     MongoStorage,
     get_user_movie_storage,
     get_similarity_storage,
+    get_new_movies_storage,
 )
 from core.models import FilmShort
 
@@ -22,9 +23,11 @@ class RecommendationsService:
         self,
         user_movie_collection: MongoStorage,
         similarity_collection: MongoStorage,
+        new_movies_collection: MongoStorage,
     ) -> None:
         self.user_movie_collection = user_movie_collection
         self.similarity_collection = similarity_collection
+        self.new_movies_collection = new_movies_collection
 
     async def refresh_matrices(self) -> None:
         """Создание/обновление существующих матриц."""
@@ -70,6 +73,14 @@ class RecommendationsService:
             similarity_records.append(similarity_data)
         await self.similarity_collection.delete_all()
         await self.similarity_collection.insert_many(similarity_records)
+        # Получаем список новых фильмов и сохраняем в коллекцию
+        new_movies_list = await self._get_new_movies_list(user_movie_matrix)
+        new_movies_records = []
+        for uuid in new_movies_list:
+            record = {"_id": uuid}
+            new_movies_records.append(record)
+        await self.new_movies_collection.delete_all()
+        await self.new_movies_collection.insert_many(new_movies_records)
 
     async def get_recommendations(self, user_id: str) -> list[FilmShort]:
         """Получение списка рекомендаций с учетом лучших фильмов."""
@@ -82,9 +93,7 @@ class RecommendationsService:
             best_movies_list = self._get_average_ratings(user_movie_matrix)
             best_movies_list_time = time.time() - start_time
             # получаем список новых фильмов
-            new_movies_list = await self._get_new_movies_list(
-                user_movie_matrix
-            )
+            new_movies_list = await self.new_movies_collection.distinct("_id")
             new_movies_list_time = time.time() - start_time
             # Находим схожих пользователей
             similar_users = similarity_matrix[user_id].sort_values(
@@ -328,8 +337,10 @@ class RecommendationsService:
 def get_recommendations_service(
     user_movie_collection: MongoStorage = Depends(get_user_movie_storage),
     similarity_collection: MongoStorage = Depends(get_similarity_storage),
+    new_movies_collection: MongoStorage = Depends(get_new_movies_storage),
 ) -> RecommendationsService:
     return RecommendationsService(
         user_movie_collection=user_movie_collection,
         similarity_collection=similarity_collection,
+        new_movies_collection=new_movies_collection,
     )
