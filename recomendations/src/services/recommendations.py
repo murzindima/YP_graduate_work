@@ -108,6 +108,11 @@ class RecommendationsService:
             # Получаем список movies_uuid по популярности:
             best_movies_list = self._get_average_ratings(user_movie_matrix)
             best_movies_list_time = time.time() - start_time
+            # получаем список новых фильмов
+            new_movies_list = await self._get_new_movies_list(
+                user_movie_matrix
+            )
+            new_movies_list_time = time.time() - start_time
             # Находим схожих пользователей
             similar_users = similarity_matrix[user_id].sort_values(
                 ascending=False
@@ -128,46 +133,112 @@ class RecommendationsService:
                 recommended_movies.items(), key=lambda x: x[1], reverse=True
             )
             recommended_movies_sorted_time = time.time() - start_time
-            # Возвращаем топ N рекомендаций
-            movies_uuid = [
-                movie
-                for movie, _ in recommended_movies_sorted[
-                    : settings.num_recommendations
-                ]
+            # Возвращаем топ рекомендаций
+            recommended_movies_list = [
+                movie for movie, _ in recommended_movies_sorted
             ]
+            recommended_movies_list_time = time.time() - start_time
+            movies_uuid = self._get_uuid_list(
+                recommended_movies_list, best_movies_list, new_movies_list
+            )
             movies_uuid_time = time.time() - start_time
-            # Если рекомендаций нет возвращаем лучшие фильмы
-            if movies_uuid == []:
-                movies_uuid = best_movies_list
-            # Корректируем список лучшими фильмами:
-            ## если рекомендаций меньше, чем нужно, дополняем лучшими:
-            need_to_add = settings.num_recommendations - len(movies_uuid)
-            x = 0
-            while need_to_add > 0:
-                movies_uuid.append(best_movies_list[x])
-                x += 1
-                need_to_add -= 1
-            ## проверяем, что число новых фильмов в рекомендациях больше минимального:
-            y = settings.num_recommendations - 1
-            while x < settings.min_best_movies_in_recommendations:
-                movies_uuid[y] = best_movies_list[x]
-                y -= 1
-                x += 1
             # получаем данные по фильмам из movies
             movies_data = await self._fetch_movies_data_by_uuid(
                 movies_uuid[: settings.num_recommendations]
             )
             movies_data_time = time.time() - start_time
             # сортируем результат
+
             recommendations = self._sort_movies(movies_uuid, movies_data)
             recommendations_time = time.time() - start_time
+
             print(
-                f"Работа get_recommendations: get_matrix_time = {get_matrix_time}, best_movies_list_time = {best_movies_list_time}, similar_users_time = {similar_users_time}, recommended_movies_time = {recommended_movies_time}, recommended_movies_sorted_time = {recommended_movies_sorted_time}, "
-                f"movies_uuid_time = {movies_uuid_time}, movies_data_time = {movies_data_time}, recommendations_time = {recommendations_time}"
+                f"Работа get_recommendations: get_matrix_time = {get_matrix_time}, best_movies_list_time = {best_movies_list_time}, new_movies_list_time = {new_movies_list_time}, similar_users_time = {similar_users_time}, recommended_movies_time = {recommended_movies_time}, recommended_movies_sorted_time = {recommended_movies_sorted_time}, "
+                f"recommended_movies_list_time = {recommended_movies_list_time}, movies_uuid_time = {movies_uuid_time}, movies_data_time = {movies_data_time}, recommendations_time = {recommendations_time}"
             )
+
             return recommendations
         except KeyError as exc:
             raise UserNotFoundtExeption from exc
+
+    async def _get_all_movies_uuid(self) -> list[str]:
+        """Получение всех UUID фильмоы из movies."""
+        try:
+            response = requests.get(settings.movies_uuid_endpoint)
+            response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
+            data = response.json()
+            return data
+        except requests.RequestException as e:
+            print(f"Ошибка при запросе к API: {e}")
+            return []  # Возвращаем пустой список, если есть ошибка
+
+    async def _get_new_movies_list(self, user_movie_matrix) -> list[str]:
+        """Получение списка киноновинок."""
+        # получаем список всех фильмов в movies
+        all_movies = await self._get_all_movies_uuid()
+        # получаем список всех фильмов, на которые есть отзывы
+        movie_ids = user_movie_matrix.columns.tolist()
+        # Преобразование списка UUID фильмов из all_movies в множество
+        all_movies_set = set(all_movies)
+        # Преобразование списка movie_ids в множество
+        movie_ids_set = set(movie_ids)
+        # Получение списка фильмов, которые есть в all_movies, но отсутствуют в movie_ids
+        new_movies_list = list(all_movies_set - movie_ids_set)
+        return new_movies_list
+
+    def _get_uuid_list(
+        self, recommended_movies_list, best_movies_list, new_movies_list
+    ) -> list[str]:
+        """Получение списка UUID фильмов для рекомендаций."""
+        min_recommendations = (
+            settings.num_recommendations
+            - settings.min_best_movies_in_recommendations
+            - settings.min_new_movies_in_recommendations
+        )
+        movies_uuid = []
+        # Добавляем фильмы из recommended_movies_list
+        movies_uuid.extend(recommended_movies_list[:min_recommendations])
+        # Добавляем фильмы из best_movies_list
+        movies_uuid.extend(
+            best_movies_list[: settings.min_best_movies_in_recommendations]
+        )
+        # Добавляем фильмы из new_movies_list
+        movies_uuid.extend(
+            new_movies_list[: settings.min_new_movies_in_recommendations]
+        )
+
+        # Если какой-то из списков пуст или содержит меньше требуемого количества,
+        # добавляем фильмы из других списков
+        total_movies = len(movies_uuid)
+        if total_movies < settings.num_recommendations:
+            need_to_add = settings.num_recommendations - total_movies
+            if (
+                need_to_add
+                <= len(recommended_movies_list) - min_recommendations
+            ):
+                movies_uuid.extend(
+                    recommended_movies_list[
+                        min_recommendations : min_recommendations + need_to_add
+                    ]
+                )
+                need_to_add = 0
+            else:
+                movies_uuid.extend(
+                    recommended_movies_list[min_recommendations:]
+                )
+                need_to_add -= (
+                    len(recommended_movies_list) - min_recommendations
+                )
+
+            if need_to_add > 0 and best_movies_list:
+                movies_uuid.extend(best_movies_list[:need_to_add])
+                need_to_add = max(0, need_to_add - len(best_movies_list))
+
+            if need_to_add > 0 and new_movies_list:
+                movies_uuid.extend(new_movies_list[:need_to_add])
+                need_to_add = 0
+
+        return movies_uuid
 
     def _get_average_ratings(self, user_movie_matrix) -> list[str]:
         """Получение списка UUID фильмов отсортированных по рейтингу."""

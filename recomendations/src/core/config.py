@@ -27,10 +27,12 @@ class Settings(BaseSettings):
     num_recommendations: int = 10
     num_similar_users: int = 20
     min_best_movies_in_recommendations: int = 3
+    min_new_movies_in_recommendations: int = 2
 
     ugc_movies_endpoint: str = Field(default="localhost:80/api/v1/movies")
 
     movies_endpoint: str = Field(default="localhost:70/api/v1/films")
+    movies_uuid_endpoint: str = Field(default="localhost:70/api/v1/films/all")
 
     new_movies_endpoint: str = Field(default="localhost:80/api/v1/movies")
 
