@@ -12,7 +12,7 @@ from core.enum import (
     APIFilmListDescription,
     ErrorMessage,
 )
-from core.models import Base, UserRights
+from core.models import UserRights
 from core.service import CommonService
 from models.film import Film, FilmShort
 from services.film import get_film_service
@@ -66,7 +66,7 @@ async def film_short_list(
 
 
 @router.get("/all", response_model=list[UUID])
-async def film_list(
+async def film_uuid_list(
     request: Request,
     service: CommonService = Depends(get_film_service),
 ) -> list[UUID]:
