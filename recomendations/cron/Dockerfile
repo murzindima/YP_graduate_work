@@ -16,7 +16,7 @@ RUN poetry config virtualenvs.create false \
 RUN apt-get update
 RUN apt-get -y install cron
 
-RUN crontab -l | { cat; echo "* * * * * /usr/local/bin/python  /usr/src/cron/cron.py 2>/usr/src/cron/logs/cron.log"; } | crontab -
+RUN crontab -l | { cat; echo "* 1 * * * /usr/local/bin/python  /usr/src/cron/cron.py 2>/usr/src/cron/logs/cron.log"; } | crontab -
 
 
 COPY . .
