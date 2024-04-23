@@ -104,6 +104,19 @@ services:
       - fastapi-recommendations
     restart: always
 
+  cron-recommendations:
+    container_name: $CRON_RECOMMENDATIONS_HOST
+    build:
+      context: ./recomendations/cron
+    image: $CRON_RECOMMENDATIONS_HOST
+    env_file:
+      - .env
+    volumes:
+      - ./recomendations/cron:$CRON_WORKDIR:rw
+      - cron_recommendations_log:$CRON_WORKDIR/logs
+    restart: always
+    command: bash start.sh
+
   postgres-movies:
     container_name: $MOVIES_POSTGRES_HOST
     image: postgres:16.0-alpine3.18
@@ -216,6 +229,7 @@ volumes:
   fastapi_main_ugc_log:
   nginx_recommendations_log:
   fastapi_recommendations_log:
+  cron_recommendations_log:
   nginx_movies_log:
   postgres_movies_data:
   etl_movies_log:

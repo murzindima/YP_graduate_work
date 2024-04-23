@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "Recomendations"
+version = "0.1.0"
+description = "FastApi UGC main"
+authors = ["Your Name <you@example.com>"]
+license = "n"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic-settings = "^2.2.1"
+python-jose = "^3.3.0"
+pydantic = {extras = ["email"], version = "^2.6.3"}
+pandas = "^2.2.2"
+requests = "^2.31.0"
+backoff = "^2.2.1"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,5 +1,4 @@
 import json
-import time
 from collections import defaultdict
 
 import pandas as pd
@@ -80,26 +79,22 @@ class RecommendationsService:
             record = {"_id": uuid}
             new_movies_records.append(record)
         await self.new_movies_collection.delete_all()
-        await self.new_movies_collection.insert_many(new_movies_records)
+        if new_movies_records:
+            await self.new_movies_collection.insert_many(new_movies_records)
 
     async def get_recommendations(self, user_id: str) -> list[FilmShort]:
         """Получение списка рекомендаций с учетом лучших фильмов."""
         try:
-            start_time = time.time()
             # получение матриц
             user_movie_matrix, similarity_matrix = await self._fetch_matrices()
-            get_matrix_time = time.time() - start_time
             # Получаем список movies_uuid по популярности:
             best_movies_list = self._get_average_ratings(user_movie_matrix)
-            best_movies_list_time = time.time() - start_time
             # получаем список новых фильмов
             new_movies_list = await self.new_movies_collection.distinct("_id")
-            new_movies_list_time = time.time() - start_time
             # Находим схожих пользователей
             similar_users = similarity_matrix[user_id].sort_values(
                 ascending=False
             )[1 : (settings.num_similar_users + 1)]  # исключая самого себя
-            similar_users_time = time.time() - start_time
             # Собираем рекомендации от схожих пользователей
             recommended_movies = defaultdict(float)
             for other_user, similarity in similar_users.items():
@@ -109,36 +104,23 @@ class RecommendationsService:
                         and user_movie_matrix.at[user_id, movie] == 0
                     ):  # фильм понравился другому и не смотрел целевой
                         recommended_movies[movie] += similarity * rating
-            recommended_movies_time = time.time() - start_time
             # Сортировка рекомендаций
             recommended_movies_sorted = sorted(
                 recommended_movies.items(), key=lambda x: x[1], reverse=True
             )
-            recommended_movies_sorted_time = time.time() - start_time
             # Возвращаем топ рекомендаций
             recommended_movies_list = [
                 movie for movie, _ in recommended_movies_sorted
             ]
-            recommended_movies_list_time = time.time() - start_time
             movies_uuid = self._get_uuid_list(
                 recommended_movies_list, best_movies_list, new_movies_list
             )
-            movies_uuid_time = time.time() - start_time
             # получаем данные по фильмам из movies
             movies_data = await self._fetch_movies_data_by_uuid(
                 movies_uuid[: settings.num_recommendations]
             )
-            movies_data_time = time.time() - start_time
             # сортируем результат
-
             recommendations = self._sort_movies(movies_uuid, movies_data)
-            recommendations_time = time.time() - start_time
-
-            print(
-                f"Работа get_recommendations: get_matrix_time = {get_matrix_time}, best_movies_list_time = {best_movies_list_time}, new_movies_list_time = {new_movies_list_time}, similar_users_time = {similar_users_time}, recommended_movies_time = {recommended_movies_time}, recommended_movies_sorted_time = {recommended_movies_sorted_time}, "
-                f"recommended_movies_list_time = {recommended_movies_list_time}, movies_uuid_time = {movies_uuid_time}, movies_data_time = {movies_data_time}, recommendations_time = {recommendations_time}"
-            )
-
             return recommendations
         except KeyError as exc:
             raise UserNotFoundtExeption from exc
