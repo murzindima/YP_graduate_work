@@ -1,4 +1,4 @@
-#name: recommendations
+name: recommendations
 version: '3.9'
 
 services:
@@ -105,6 +105,19 @@ services:
     depends_on:
       - fastapi-recommendations
     restart: always
+
+  cron-recommendations:
+    container_name: $CRON_RECOMMENDATIONS_HOST
+    build:
+      context: ./recomendations/cron
+    image: $CRON_RECOMMENDATIONS_HOST
+    env_file:
+      - .env
+    volumes:
+      - ./recomendations/cron:$CRON_WORKDIR:rw
+      - cron_recommendations_log:$CRON_WORKDIR/logs
+    restart: always
+    command: bash start.sh
 
   postgres-movies:
     container_name: $MOVIES_POSTGRES_HOST
