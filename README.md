@@ -1,3 +1,5 @@
+[![Linters and Formatters](https://github.com/murzindima/graduate_work/actions/workflows/checks.yml/badge.svg)](https://github.com/murzindima/graduate_work/actions/workflows/checks.yml)
+
 # Проектная работа: диплом
 
 ## Адрес репозитория
