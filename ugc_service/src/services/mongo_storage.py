@@ -41,7 +41,7 @@ class AbstractStorage(ABC):
         filters: dict,
         projection: dict = {},
         skip: int = 0,
-        limit: int = 100,
+        limit: int = None,
     ) -> list[dict]:
         """
         Выполняет поиск документов в коллекции с использованием заданного фильтра, пропускает
@@ -55,7 +55,11 @@ class AbstractStorage(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, filters: dict, projection: dict = {},) -> dict:
+    async def get_by_id(
+        self,
+        filters: dict,
+        projection: dict = {},
+    ) -> dict:
         """
         Возвращает документ из коллекции по заданному идентификатору.
 
@@ -93,20 +97,21 @@ class MongoStorage(AbstractStorage):
         filters: dict,
         projection: dict = {},
         skip: int = 0,
-        limit: int = 100,
+        limit: int = None,
     ) -> list[dict]:
-        cursor = (
-            self.collection.find(filters, projection).skip(skip).limit(limit)
-        )
+        query = self.collection.find(filters, projection).skip(skip)
+        if limit is not None:
+            query = query.limit(limit)
+        cursor = query
         docs = await cursor.to_list(length=None)
         return docs
 
-    async def get_by_id(self, filters: dict, projection: dict = {},) -> dict:
+    async def get_by_id(self, filters: dict, projection: dict = {}) -> dict:
         doc = await self.collection.find_one(filters, projection)
         return doc if doc else None
 
     async def delete_one(self, id_: str) -> int:
-        filters = {'_id': ObjectId(id_)}
+        filters = {"_id": ObjectId(id_)}
         result = await self.collection.delete_one(filters)
         return result.deleted_count
 
@@ -114,12 +119,12 @@ class MongoStorage(AbstractStorage):
 def get_favourites_storage(
     collection=Depends(get_mongodb),
 ) -> MongoStorage:
-    collection = collection['ugc']['favourites']
+    collection = collection["ugc"]["favourites"]
     return MongoStorage(collection=collection)
 
 
 def get_film_storage(
     collection=Depends(get_mongodb),
 ) -> MongoStorage:
-    collection = collection['ugc']['movies']
+    collection = collection["ugc"]["movies"]
     return MongoStorage(collection=collection)
