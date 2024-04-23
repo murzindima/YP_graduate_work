@@ -65,6 +65,29 @@ async def film_short_list(
     return films
 
 
+@router.get("/all", response_model=list[UUID])
+async def film_uuid_list(
+    request: Request,
+    service: CommonService = Depends(get_film_service),
+) -> list[UUID]:
+    """
+    Поиск всех UUID фильмов.
+
+    """
+    films = await service.get_list(
+        page_size=10000,
+        bool_operator="must",
+        request=request,
+    )
+    if not films:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=ErrorMessage.films_not_found,
+        )
+    uuid_list = [film.uuid for film in films]
+    return uuid_list
+
+
 @router.get(
     "/{uuid}",
     response_model=Film,

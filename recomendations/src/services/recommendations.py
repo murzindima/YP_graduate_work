@@ -29,26 +29,15 @@ class RecommendationsService:
         self.similarity_collection = similarity_collection
         self.new_movies_collection = new_movies_collection
 
-    async def refresh_new(self) -> None:
-        """Создание/обновление данных по новинкам."""
-        raw_data = await self._fetch_movies_data(settings.new_movies_endpoint)
-
-        await self.new_movies_collection.delete_all()
-        await self.new_movies_collection.insert_many(raw_data)
-
     async def refresh_matrices(self) -> None:
         """Создание/обновление существующих матриц."""
-        start_time = time.time()
         raw_data = await self._fetch_movies_data(settings.ugc_movies_endpoint)
-        raw_data_time = time.time() - start_time
         df_likes = self._process_data(raw_data)
-        df_likes_time = time.time() - start_time
 
         # Создание матрицы "пользователь-фильм"
         user_movie_matrix = df_likes.pivot_table(
             index="user_id", columns="movie_id", values="rating", fill_value=0
         )
-        user_movie_matrix_time = time.time() - start_time
         # Преобразование в нужный формат и сохранение в коллекцию
         user_movie_records = []
         for user_id, row in user_movie_matrix.iterrows():
@@ -61,11 +50,8 @@ class RecommendationsService:
                     {"movie_id": movie_id, "rating": rating}
                 )
             user_movie_records.append(user_movie_data)
-        user_movie_records_time = time.time() - start_time
         await self.user_movie_collection.delete_all()
-        user_movie_delete_time = time.time() - start_time
         await self.user_movie_collection.insert_many(user_movie_records)
-        user_movie_insert_time = time.time() - start_time
 
         # Вычисление косинусного сходства между пользователями
         similarity_matrix = pd.DataFrame(
@@ -73,7 +59,6 @@ class RecommendationsService:
             index=user_movie_matrix.index,
             columns=user_movie_matrix.index,
         )
-        similarity_matrix_time = time.time() - start_time
         # Преобразование в нужный формат и сохранение в коллекцию user_similarity
         similarity_records = []
         for user_id, row in similarity_matrix.iterrows():
@@ -86,17 +71,16 @@ class RecommendationsService:
                     {"user_id": other_user_id, "similarity": similarity}
                 )
             similarity_records.append(similarity_data)
-        similarity_records_time = time.time() - start_time
         await self.similarity_collection.delete_all()
-        similarity_delete_time = time.time() - start_time
         await self.similarity_collection.insert_many(similarity_records)
-        similarity_insert_time = time.time() - start_time
-        print(
-            f"Работа refresh_matrices: raw_data_time = {raw_data_time}, df_likes_time = {df_likes_time}, user_movie_matrix_time = {user_movie_matrix_time}, "
-            f"user_movie_records_time = {user_movie_records_time}, user_movie_delete_time = {user_movie_delete_time}, user_movie_insert_time = {user_movie_insert_time}, "
-            f"similarity_matrix_time = {similarity_matrix_time}, similarity_records_time = {similarity_records_time}, similarity_delete_time = {similarity_delete_time}, "
-            f"similarity_insert_time = {similarity_insert_time}"
-        )
+        # Получаем список новых фильмов и сохраняем в коллекцию
+        new_movies_list = await self._get_new_movies_list(user_movie_matrix)
+        new_movies_records = []
+        for uuid in new_movies_list:
+            record = {"_id": uuid}
+            new_movies_records.append(record)
+        await self.new_movies_collection.delete_all()
+        await self.new_movies_collection.insert_many(new_movies_records)
 
     async def get_recommendations(self, user_id: str) -> list[FilmShort]:
         """Получение списка рекомендаций с учетом лучших фильмов."""
@@ -108,6 +92,9 @@ class RecommendationsService:
             # Получаем список movies_uuid по популярности:
             best_movies_list = self._get_average_ratings(user_movie_matrix)
             best_movies_list_time = time.time() - start_time
+            # получаем список новых фильмов
+            new_movies_list = await self.new_movies_collection.distinct("_id")
+            new_movies_list_time = time.time() - start_time
             # Находим схожих пользователей
             similar_users = similarity_matrix[user_id].sort_values(
                 ascending=False
@@ -128,46 +115,112 @@ class RecommendationsService:
                 recommended_movies.items(), key=lambda x: x[1], reverse=True
             )
             recommended_movies_sorted_time = time.time() - start_time
-            # Возвращаем топ N рекомендаций
-            movies_uuid = [
-                movie
-                for movie, _ in recommended_movies_sorted[
-                    : settings.num_recommendations
-                ]
+            # Возвращаем топ рекомендаций
+            recommended_movies_list = [
+                movie for movie, _ in recommended_movies_sorted
             ]
+            recommended_movies_list_time = time.time() - start_time
+            movies_uuid = self._get_uuid_list(
+                recommended_movies_list, best_movies_list, new_movies_list
+            )
             movies_uuid_time = time.time() - start_time
-            # Если рекомендаций нет возвращаем лучшие фильмы
-            if movies_uuid == []:
-                movies_uuid = best_movies_list
-            # Корректируем список лучшими фильмами:
-            ## если рекомендаций меньше, чем нужно, дополняем лучшими:
-            need_to_add = settings.num_recommendations - len(movies_uuid)
-            x = 0
-            while need_to_add > 0:
-                movies_uuid.append(best_movies_list[x])
-                x += 1
-                need_to_add -= 1
-            ## проверяем, что число новых фильмов в рекомендациях больше минимального:
-            y = settings.num_recommendations - 1
-            while x < settings.min_best_movies_in_recommendations:
-                movies_uuid[y] = best_movies_list[x]
-                y -= 1
-                x += 1
             # получаем данные по фильмам из movies
             movies_data = await self._fetch_movies_data_by_uuid(
                 movies_uuid[: settings.num_recommendations]
             )
             movies_data_time = time.time() - start_time
             # сортируем результат
+
             recommendations = self._sort_movies(movies_uuid, movies_data)
             recommendations_time = time.time() - start_time
+
             print(
-                f"Работа get_recommendations: get_matrix_time = {get_matrix_time}, best_movies_list_time = {best_movies_list_time}, similar_users_time = {similar_users_time}, recommended_movies_time = {recommended_movies_time}, recommended_movies_sorted_time = {recommended_movies_sorted_time}, "
-                f"movies_uuid_time = {movies_uuid_time}, movies_data_time = {movies_data_time}, recommendations_time = {recommendations_time}"
+                f"Работа get_recommendations: get_matrix_time = {get_matrix_time}, best_movies_list_time = {best_movies_list_time}, new_movies_list_time = {new_movies_list_time}, similar_users_time = {similar_users_time}, recommended_movies_time = {recommended_movies_time}, recommended_movies_sorted_time = {recommended_movies_sorted_time}, "
+                f"recommended_movies_list_time = {recommended_movies_list_time}, movies_uuid_time = {movies_uuid_time}, movies_data_time = {movies_data_time}, recommendations_time = {recommendations_time}"
             )
+
             return recommendations
         except KeyError as exc:
             raise UserNotFoundtExeption from exc
+
+    async def _get_all_movies_uuid(self) -> list[str]:
+        """Получение всех UUID фильмоы из movies."""
+        try:
+            response = requests.get(settings.movies_uuid_endpoint)
+            response.raise_for_status()  # Бросит исключение для статусов 4xx и 5xx
+            data = response.json()
+            return data
+        except requests.RequestException as e:
+            print(f"Ошибка при запросе к API: {e}")
+            return []  # Возвращаем пустой список, если есть ошибка
+
+    async def _get_new_movies_list(self, user_movie_matrix) -> list[str]:
+        """Получение списка киноновинок."""
+        # получаем список всех фильмов в movies
+        all_movies = await self._get_all_movies_uuid()
+        # получаем список всех фильмов, на которые есть отзывы
+        movie_ids = user_movie_matrix.columns.tolist()
+        # Преобразование списка UUID фильмов из all_movies в множество
+        all_movies_set = set(all_movies)
+        # Преобразование списка movie_ids в множество
+        movie_ids_set = set(movie_ids)
+        # Получение списка фильмов, которые есть в all_movies, но отсутствуют в movie_ids
+        new_movies_list = list(all_movies_set - movie_ids_set)
+        return new_movies_list
+
+    def _get_uuid_list(
+        self, recommended_movies_list, best_movies_list, new_movies_list
+    ) -> list[str]:
+        """Получение списка UUID фильмов для рекомендаций."""
+        min_recommendations = (
+            settings.num_recommendations
+            - settings.min_best_movies_in_recommendations
+            - settings.min_new_movies_in_recommendations
+        )
+        movies_uuid = []
+        # Добавляем фильмы из recommended_movies_list
+        movies_uuid.extend(recommended_movies_list[:min_recommendations])
+        # Добавляем фильмы из best_movies_list
+        movies_uuid.extend(
+            best_movies_list[: settings.min_best_movies_in_recommendations]
+        )
+        # Добавляем фильмы из new_movies_list
+        movies_uuid.extend(
+            new_movies_list[: settings.min_new_movies_in_recommendations]
+        )
+
+        # Если какой-то из списков пуст или содержит меньше требуемого количества,
+        # добавляем фильмы из других списков
+        total_movies = len(movies_uuid)
+        if total_movies < settings.num_recommendations:
+            need_to_add = settings.num_recommendations - total_movies
+            if (
+                need_to_add
+                <= len(recommended_movies_list) - min_recommendations
+            ):
+                movies_uuid.extend(
+                    recommended_movies_list[
+                        min_recommendations : min_recommendations + need_to_add
+                    ]
+                )
+                need_to_add = 0
+            else:
+                movies_uuid.extend(
+                    recommended_movies_list[min_recommendations:]
+                )
+                need_to_add -= (
+                    len(recommended_movies_list) - min_recommendations
+                )
+
+            if need_to_add > 0 and best_movies_list:
+                movies_uuid.extend(best_movies_list[:need_to_add])
+                need_to_add = max(0, need_to_add - len(best_movies_list))
+
+            if need_to_add > 0 and new_movies_list:
+                movies_uuid.extend(new_movies_list[:need_to_add])
+                need_to_add = 0
+
+        return movies_uuid
 
     def _get_average_ratings(self, user_movie_matrix) -> list[str]:
         """Получение списка UUID фильмов отсортированных по рейтингу."""
@@ -243,10 +296,8 @@ class RecommendationsService:
 
     async def _fetch_matrices(self):
         """Получение матриц из хранилища."""
-        start_time = time.time()
         # Извлечение user_movie_matrix
         user_movie_data = await self.user_movie_collection.get_list()
-        user_movie_data_time = time.time() - start_time
         # Создаем список словарей
         data_list = []
         for user in user_movie_data:
@@ -260,14 +311,11 @@ class RecommendationsService:
                 )
         # Создаем DataFrame из списка словарей
         user_movie_df = pd.DataFrame(data_list)
-        user_movie_df_time = time.time() - start_time
         user_movie_matrix = user_movie_df.pivot(
             index="user_id", columns="movie_id", values="rating"
         )
-        user_movie_matrix_time = time.time() - start_time
         # Извлечение similarity_matrix
         similarity_data = await self.similarity_collection.get_list()
-        similarity_data_time = time.time() - start_time
         # Создаем список словарей
         data_list = []
         for user in similarity_data:
@@ -280,21 +328,10 @@ class RecommendationsService:
                     }
                 )
         similarity_df = pd.DataFrame(data_list)
-        similarity_df_time = time.time() - start_time
         similarity_matrix = similarity_df.pivot(
             index="user_id", columns="other_user", values="similarity"
         )
-        similarity_matrix_time = time.time() - start_time
-        print(
-            f"Работа _fetch_matrices: user_movie_data_time = {user_movie_data_time}, user_movie_df_time = {user_movie_df_time}, user_movie_matrix_time = {user_movie_matrix_time}, similarity_data_time = {similarity_data_time}, "
-            f"similarity_df_time = {similarity_df_time}, similarity_matrix_time = {similarity_matrix_time}"
-        )
         return user_movie_matrix, similarity_matrix
-
-    async def _fetch_new_movies(self):
-        """Получение новинок из хранилища."""
-        movies_data = await self.new_movies_collection.get_list()
-        return movies_data
 
 
 def get_recommendations_service(
