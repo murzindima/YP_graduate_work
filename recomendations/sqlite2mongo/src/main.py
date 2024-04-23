@@ -19,6 +19,8 @@ films = cursor.fetchall()
 # Генерация уникальных user_id
 user_count = 100
 user_ids = [str(uuid.uuid4()) for _ in range(user_count)]
+user_for_tests = '3c8d0006-d12b-450c-808e-4c5639f2fb4d'
+user_ids.append(user_for_tests)
 shuffle(user_ids)  # Перемешиваем для случайного порядка
 
 
