@@ -1,4 +1,4 @@
-name: recommendations
+#name: recommendations
 version: '3.9'
 
 services:
@@ -224,6 +224,7 @@ volumes:
   fastapi_main_ugc_log:
   nginx_recommendations_log:
   fastapi_recommendations_log:
+  cron_recommendations_log:
   nginx_movies_log:
   postgres_movies_data:
   etl_movies_log:
