@@ -1,0 +1,9 @@
+name: recommendations-tests
+
+services:
+  recommendations-tests:
+    container_name: recommendations-tests
+    image: $RECOMMENDATIONS_HOST
+    env_file:
+      - .env
+    command: pytest .

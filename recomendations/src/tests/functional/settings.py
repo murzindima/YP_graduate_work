@@ -2,8 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class TestSettings(BaseSettings):
-    auth_api_url: str = "http://auth-api:80/api/v1"
-    notifications_api_url: str = "http://notifications-api:80/api/v1"
+    recommendations_api_base_url: str = "http://host.docker.internal:90/api/v1/recommendations"
 
 
 test_settings = TestSettings()
