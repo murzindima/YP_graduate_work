@@ -154,7 +154,7 @@ class RecommendationsService:
 
     def _get_uuid_list(
         self, recommended_movies_list, best_movies_list, new_movies_list
-    ) -> set[str]:
+    ) -> list[str]:
         """Получение списка UUID фильмов для рекомендаций."""
         min_recommendations = (
             settings.num_recommendations
@@ -204,7 +204,7 @@ class RecommendationsService:
                 movies_uuid.update(new_movies_list[:need_to_add])
                 need_to_add = 0
 
-        return movies_uuid
+        return list(movies_uuid)
 
     def _get_average_ratings(self, user_movie_matrix) -> list[str]:
         """Получение списка UUID фильмов отсортированных по рейтингу."""
