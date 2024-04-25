@@ -21,5 +21,7 @@ RUN crontab -l | { cat; echo "* 1 * * * /usr/local/bin/python  /usr/src/cron/cro
 
 COPY . .
 
+CMD ["bash", "start.sh"]
+
 
 
