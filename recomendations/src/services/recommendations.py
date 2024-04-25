@@ -153,22 +153,22 @@ class RecommendationsService:
 
     def _get_uuid_list(
         self, recommended_movies_list, best_movies_list, new_movies_list
-    ) -> list[str]:
+    ) -> set[str]:
         """Получение списка UUID фильмов для рекомендаций."""
         min_recommendations = (
             settings.num_recommendations
             - settings.min_best_movies_in_recommendations
             - settings.min_new_movies_in_recommendations
         )
-        movies_uuid = []
+        movies_uuid = set()
         # Добавляем фильмы из recommended_movies_list
-        movies_uuid.extend(recommended_movies_list[:min_recommendations])
+        movies_uuid.update(recommended_movies_list[:min_recommendations])
         # Добавляем фильмы из best_movies_list
-        movies_uuid.extend(
+        movies_uuid.update(
             best_movies_list[: settings.min_best_movies_in_recommendations]
         )
         # Добавляем фильмы из new_movies_list
-        movies_uuid.extend(
+        movies_uuid.update(
             new_movies_list[: settings.min_new_movies_in_recommendations]
         )
 
@@ -181,14 +181,14 @@ class RecommendationsService:
                 need_to_add
                 <= len(recommended_movies_list) - min_recommendations
             ):
-                movies_uuid.extend(
+                movies_uuid.update(
                     recommended_movies_list[
                         min_recommendations : min_recommendations + need_to_add
                     ]
                 )
                 need_to_add = 0
             else:
-                movies_uuid.extend(
+                movies_uuid.update(
                     recommended_movies_list[min_recommendations:]
                 )
                 need_to_add -= (
@@ -196,11 +196,11 @@ class RecommendationsService:
                 )
 
             if need_to_add > 0 and best_movies_list:
-                movies_uuid.extend(best_movies_list[:need_to_add])
+                movies_uuid.update(best_movies_list[:need_to_add])
                 need_to_add = max(0, need_to_add - len(best_movies_list))
 
             if need_to_add > 0 and new_movies_list:
-                movies_uuid.extend(new_movies_list[:need_to_add])
+                movies_uuid.update(new_movies_list[:need_to_add])
                 need_to_add = 0
 
         return movies_uuid

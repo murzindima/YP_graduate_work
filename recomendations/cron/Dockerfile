@@ -18,7 +18,6 @@ RUN apt-get -y install cron
 
 RUN crontab -l | { cat; echo "* 1 * * * /usr/local/bin/python  /usr/src/cron/cron.py 2>/usr/src/cron/logs/cron.log"; } | crontab -
 
-
 COPY . .
 
 CMD ["bash", "start.sh"]
