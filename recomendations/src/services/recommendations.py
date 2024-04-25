@@ -1,6 +1,8 @@
 import json
 from collections import defaultdict
 
+import logging
+
 import pandas as pd
 from aiohttp import ClientSession
 from fastapi import Depends
@@ -8,7 +10,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from core.config import settings
 from core.exceptions import UserNotFoundtExeption
-from core.logger import logger
 from core.models import FilmShort
 from services.mongo_storage import (
     MongoStorage,
@@ -16,6 +17,8 @@ from services.mongo_storage import (
     get_similarity_storage,
     get_new_movies_storage,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RecommendationsService:
@@ -123,6 +126,7 @@ class RecommendationsService:
             # сортируем результат
             recommendations = self._sort_movies(movies_uuid, movies_data)
             return recommendations
+
         except KeyError as exc:
             raise UserNotFoundtExeption from exc
 
@@ -135,7 +139,7 @@ class RecommendationsService:
                     data = await response.json()
                     return data
             except Exception as e:
-                logger.error(f"Ошибка при запросе к API: {e}")
+                logger.error(f"Ошибка при получение всех UUID фильмоы из Movies: {e}")
                 return []
 
     async def _get_new_movies_list(self, user_movie_matrix) -> list[str]:
@@ -244,7 +248,7 @@ class RecommendationsService:
                     data = await response.json()
                     return data
             except Exception as e:
-                logger.error(f"Ошибка при запросе к API: {e}")
+                logger.error(f"Ошибка при получении данных из UGC: {e}")
                 return []
 
     async def _fetch_movies_data_by_uuid(
@@ -253,15 +257,13 @@ class RecommendationsService:
         """Получение данных по фильмам из Movies"""
         async with ClientSession() as session:
             try:
-                data = json.dumps(movies_uuid)
                 async with session.post(
-                    settings.movies_endpoint, data=data
+                    settings.movies_endpoint, json=movies_uuid
                 ) as response:
-                    response.raise_for_status()
                     data = await response.json()
                     return data
             except Exception as e:
-                logger.error(f"Ошибка при запросе к API: {e}")
+                logger.error(f"Ошибка при получении данных по фильмам из Movies: {e}")
                 return []
 
     def _process_data(self, raw_data):

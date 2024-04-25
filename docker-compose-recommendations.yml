@@ -1,5 +1,4 @@
 name: recommendations
-version: '3.9'
 
 services:
   mongo_db:
