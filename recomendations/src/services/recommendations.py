@@ -1,22 +1,21 @@
 import json
-import random
 from collections import defaultdict
 
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
-from fastapi import Depends
 from aiohttp import ClientSession
+from fastapi import Depends
+from sklearn.metrics.pairwise import cosine_similarity
 
 from core.config import settings
 from core.exceptions import UserNotFoundtExeption
+from core.logger import logger
+from core.models import FilmShort
 from services.mongo_storage import (
     MongoStorage,
     get_user_movie_storage,
     get_similarity_storage,
     get_new_movies_storage,
 )
-from core.models import FilmShort
-from core.logger import logger
 
 
 class RecommendationsService:
