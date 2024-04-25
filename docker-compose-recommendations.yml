@@ -1,5 +1,4 @@
 name: recommendations
-version: '3.9'
 
 services:
   mongo_db:
@@ -39,6 +38,8 @@ services:
     container_name: $MAIN_UGC_HOST
     build:
       context: ./ugc_service/src
+      args:
+        MAIN_UGC_PORT: $MAIN_UGC_PORT
     image: $MAIN_UGC_HOST
     env_file:
       - .env
@@ -48,7 +49,6 @@ services:
       - ./ugc_service/src://usr/src/fastapi:rw
       - fastapi_main_ugc_log:/usr/src/fastapi/logs
     restart: always
-    command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$MAIN_UGC_PORT main:app
 
   nginx-main-ugc:
     container_name: nginx-main-ug
@@ -79,6 +79,8 @@ services:
     container_name: $RECOMMENDATIONS_HOST
     build:
       context: ./recomendations/src
+      args:
+        RECOMMENDATIONS_PORT: $RECOMMENDATIONS_PORT
     image: $RECOMMENDATIONS_HOST
     env_file:
       - .env
@@ -88,7 +90,6 @@ services:
       - ./recomendations/src://usr/src/fastapi:rw
       - fastapi_recommendations_log:/usr/src/fastapi/logs
     restart: always
-    command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$RECOMMENDATIONS_PORT main:app
 
   nginx-recommendations:
     container_name: nginx-recommendations
@@ -115,7 +116,6 @@ services:
       - ./recomendations/cron:$CRON_WORKDIR:rw
       - cron_recommendations_log:$CRON_WORKDIR/logs
     restart: always
-    command: bash start.sh
 
   postgres-movies:
     container_name: $MOVIES_POSTGRES_HOST
@@ -198,6 +198,8 @@ services:
     container_name: $MOVIES_FASTAPI_HOST
     build:
       context: ./movies/fastapi_movies
+      args:
+        MOVIES_FASTAPI_PORT: $MOVIES_FASTAPI_PORT
     image: $MOVIES_FASTAPI_HOST
     env_file:
       - .env
@@ -210,7 +212,6 @@ services:
       elastic-movies:
         condition: service_healthy
     restart: always
-    command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$MOVIES_FASTAPI_PORT main:app
 
   nginx-movies:
     container_name: nginx-movies

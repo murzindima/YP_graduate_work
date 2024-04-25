@@ -13,3 +13,5 @@ COPY poetry.lock pyproject.toml ./
 RUN poetry config virtualenvs.create false \
   && poetry install --no-root
 COPY . .
+
+CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b :$MOVIES_FASTAPI_PORT main:app
