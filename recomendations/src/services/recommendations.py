@@ -162,15 +162,15 @@ class RecommendationsService:
             - settings.min_best_movies_in_recommendations
             - settings.min_new_movies_in_recommendations
         )
-        movies_uuid = set()
+        movies_uuid = []
         # Добавляем фильмы из recommended_movies_list
-        movies_uuid.update(recommended_movies_list[:min_recommendations])
+        movies_uuid.extend(recommended_movies_list[:min_recommendations])
         # Добавляем фильмы из best_movies_list
-        movies_uuid.update(
+        movies_uuid.extend(
             best_movies_list[: settings.min_best_movies_in_recommendations]
         )
         # Добавляем фильмы из new_movies_list
-        movies_uuid.update(
+        movies_uuid.extend(
             new_movies_list[: settings.min_new_movies_in_recommendations]
         )
 
@@ -183,14 +183,14 @@ class RecommendationsService:
                 need_to_add
                 <= len(recommended_movies_list) - min_recommendations
             ):
-                movies_uuid.update(
+                movies_uuid.extend(
                     recommended_movies_list[
                         min_recommendations : min_recommendations + need_to_add
                     ]
                 )
                 need_to_add = 0
             else:
-                movies_uuid.update(
+                movies_uuid.extend(
                     recommended_movies_list[min_recommendations:]
                 )
                 need_to_add -= (
@@ -198,14 +198,13 @@ class RecommendationsService:
                 )
 
             if need_to_add > 0 and best_movies_list:
-                movies_uuid.update(best_movies_list[:need_to_add])
+                movies_uuid.extend(best_movies_list[:need_to_add])
                 need_to_add = max(0, need_to_add - len(best_movies_list))
 
             if need_to_add > 0 and new_movies_list:
-                movies_uuid.update(new_movies_list[:need_to_add])
-                need_to_add = 0
+                movies_uuid.extend(new_movies_list[:need_to_add])
 
-        return list(movies_uuid)
+        return movies_uuid
 
     def _get_average_ratings(self, user_movie_matrix) -> list[str]:
         """Получение списка UUID фильмов отсортированных по рейтингу."""
@@ -229,21 +228,11 @@ class RecommendationsService:
         movies_data_dict = {
             movie_data["uuid"]: movie_data for movie_data in movies_data
         }
-        # проверяем что все фильмы для рекомендаций присутствуют в movies
-        absent_films = set(movies_uuid) - set(movies_data_dict.keys())
-        if not absent_films:
-            other_films = [
-                random.sample(list(set(movies_data_dict.keys()) - set(movies_uuid)), len(absent_films))
-            ]
 
         # Создаем список рекомендаций из данных фильмов в нужном порядке
-        recommendations = []
-        for movie_uuid in movies_uuid:
-            try:
-                recommendations.append(movies_data_dict[movie_uuid])
-            except KeyError:
-                recommendations.append(movies_data_dict[other_films.pop()])
-                logger.error(f"Не нашлось в коллекции фильма с uuid={movie_uuid}")
+        recommendations = [
+            movies_data_dict[movie_uuid] for movie_uuid in movies_uuid
+        ]
 
         return recommendations
 
