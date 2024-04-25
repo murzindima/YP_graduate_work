@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     movies_endpoint: str = Field(default="localhost:70/api/v1/films")
     movies_uuid_endpoint: str = Field(default="localhost:70/api/v1/films/all")
 
-    recommendations_logfile: str = Field(default="/usr/src/cron/logs/recommendations.log")
+    recommendations_logfile: str = Field(default="/usr/src/fastapi/logs/recommendations.log")
 
     @property
     def mongo_dsn(self) -> str:
