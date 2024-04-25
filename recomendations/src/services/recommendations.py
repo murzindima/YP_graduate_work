@@ -1,7 +1,5 @@
-import json
-from collections import defaultdict
-
 import logging
+from collections import defaultdict
 
 import pandas as pd
 from aiohttp import ClientSession
