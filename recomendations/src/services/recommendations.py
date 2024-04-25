@@ -15,6 +15,7 @@ from services.mongo_storage import (
     get_new_movies_storage,
 )
 from core.models import FilmShort
+from core.logger import logger
 
 
 class RecommendationsService:
@@ -133,7 +134,7 @@ class RecommendationsService:
             data = response.json()
             return data
         except requests.RequestException as e:
-            print(f"Ошибка при запросе к API: {e}")
+            logger.error(f"Ошибка при запросе к API: {e}")
             return []  # Возвращаем пустой список, если есть ошибка
 
     async def _get_new_movies_list(self, user_movie_matrix) -> list[str]:
@@ -240,7 +241,7 @@ class RecommendationsService:
             data = response.json()
             return data
         except requests.RequestException as e:
-            print(f"Ошибка при запросе к API: {e}")
+            logger.error(f"Ошибка при запросе к API: {e}")
             return []  # Возвращаем пустой список, если есть ошибка
 
     async def _fetch_movies_data_by_uuid(
@@ -254,7 +255,7 @@ class RecommendationsService:
             data = response.json()
             return data
         except requests.RequestException as e:
-            print(f"Ошибка при запросе к API: {e}")
+            logger.error(f"Ошибка при запросе к API: {e}")
             return []  # Возвращаем пустой список, если есть ошибка
 
     def _process_data(self, raw_data):
