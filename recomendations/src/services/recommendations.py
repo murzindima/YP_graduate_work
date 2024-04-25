@@ -1,4 +1,5 @@
 import json
+import random
 from collections import defaultdict
 
 import pandas as pd
@@ -227,10 +228,22 @@ class RecommendationsService:
         movies_data_dict = {
             movie_data["uuid"]: movie_data for movie_data in movies_data
         }
+        # проверяем что все фильмы для рекомендаций присутствуют в movies
+        absent_films = set(movies_uuid) - set(movies_data_dict.keys())
+        if not absent_films:
+            other_films = [
+                random.sample(list(set(movies_data_dict.keys()) - set(movies_uuid)), len(absent_films))
+            ]
+
         # Создаем список рекомендаций из данных фильмов в нужном порядке
-        recommendations = [
-            movies_data_dict[movie_uuid] for movie_uuid in movies_uuid
-        ]
+        recommendations = []
+        for movie_uuid in movies_uuid:
+            try:
+                recommendations.append(movies_data_dict[movie_uuid])
+            except KeyError:
+                recommendations.append(movies_data_dict[other_films.pop()])
+                logger.error(f"Не нашлось в коллекции фильма с uuid={movie_uuid}")
+
         return recommendations
 
     async def _fetch_movies_data(self, endpoint):
